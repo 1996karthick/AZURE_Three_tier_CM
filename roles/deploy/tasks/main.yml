@@ -10,7 +10,7 @@
     name: "{{ resource }}-vnet"
     resource_group: "{{ resource }}"
     address_prefixes_cidr:
-        - "10.0.0.0/24"
+        - "10.0.0.0/16"
 
 - name: Create a public subnet
   azure_rm_subnet:
@@ -36,9 +36,7 @@
 - name: Create a public ip address
   azure_rm_publicipaddress:
     resource_group: "{{ resource }}"
-    name: "{{ item }}-ip"
-  with_items:
-     - "{{ vmname }}"
+    name: centospublic-ip
 
 - name: create security group
   azure_rm_securitygroup:
@@ -82,7 +80,7 @@
         virtual_network_name: "{{ resource }}-vnet"
         subnet_name: "{{ resource }}-subnet-public"
         security_group_name: "{{ resource }}-security-public"
-        public_ip_address_name: "{{ item }}-ip"
+        public_ip_address_name: centospublic-ip
 
 - name: create security group for private
   azure_rm_securitygroup:
@@ -137,6 +135,7 @@
     resource_group: "{{ resource }}"
     name: ansiblesa
     type: Standard_LRS
+    state: present
 
 
 - name: Create VM centos public
@@ -157,30 +156,31 @@
 - name: Create VM centos public
   azure_rm_virtualmachine:
     resource_group: "{{ resource }}"
-    name: centosprivate
+    name: ubuntuprivate
     vm_size: "{{ vmsize }}"
     storage_account: ansiblesa
     admin_username: "{{ username }}"
     admin_password: "{{ password }}"
     network_interfaces: ansible-nic-private
     image:
-     offer: CentOS
-     publisher: OpenLogic
-     sku: '7.2'
+     offer: UbuntuServer
+     publisher: Canonical
+     sku: 16.04-LTS
      version: latest
 
 - name: Create (or update) SQL Server
   azure_rm_sqlserver:
     resource_group: "{{ resource }}"
-    name: privateserver
+    name: zippyopspri
     location: eastus
     admin_username: mylogin
     admin_password: Testpasswordxyz12!
-    network_interfaces: ansible-nic-sql
+    state: present
 
 - name: Create (or update) SQL Database
   azure_rm_sqldatabase:
     resource_group: "{{ resource }}"
-    server_name: privateserver
+    server_name: zippyopspri
     name: zippyopsdb
     location: eastus
+    state: present
