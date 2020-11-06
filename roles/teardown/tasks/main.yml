@@ -12,26 +12,24 @@
 - name: remove vm and all resources
   azure_rm_virtualmachine:
     resource_group: "{{ resource }}"
-    name: centosprivate
+    name: ubuntuprivate
     state: absent
     remove_on_absent:
         - network_interfaces
         - virtual_storage
 
-- name: Create (or update) SQL Server
-  azure_rm_sqlserver:
-    resource_group: "{{ resource }}"
-    name: privateserver
-    location: eastus
-    state: absent
-    remove_on_absent:
-        - network_interfaces
-
 - name: Create (or update) SQL Database
   azure_rm_sqldatabase:
     resource_group: "{{ resource }}"
-    server_name: privateserver
+    server_name: zippyopspri
     name: zippyopsdb
+    location: eastus
+    state: absent
+
+- name: Create (or update) SQL Server
+  azure_rm_sqlserver:
+    resource_group: "{{ resource }}"
+    name: zippyopspri
     location: eastus
     state: absent
 
@@ -105,11 +103,11 @@
       name: "{{ resource }}-security-sql"
       state: absent
 
-- name: create a storage account
-  azure_rm_storageaccount:
-    resource_group: "{{ resource }}"
-    name: ansiblesa
-    state: absent
+#- name: create a storage account
+#  azure_rm_storageaccount:
+#    resource_group: "{{ resource }}"
+#    name: ansiblesa
+#    state: absent
 
 - name: Delete resource group
   azure_rm_resourcegroup:
