@@ -1,0 +1,118 @@
+---
+# tasks file for teardown
+- name: remove vm and all resources
+  azure_rm_virtualmachine:
+    resource_group: "{{ resource }}"
+    name: centospublic
+    state: absent
+    remove_on_absent:
+        - network_interfaces
+        - virtual_storage
+
+- name: remove vm and all resources
+  azure_rm_virtualmachine:
+    resource_group: "{{ resource }}"
+    name: centosprivate
+    state: absent
+    remove_on_absent:
+        - network_interfaces
+        - virtual_storage
+
+- name: Create (or update) SQL Server
+  azure_rm_sqlserver:
+    resource_group: "{{ resource }}"
+    name: privateserver
+    location: eastus
+    state: absent
+    remove_on_absent:
+        - network_interfaces
+
+- name: Create (or update) SQL Database
+  azure_rm_sqldatabase:
+    resource_group: "{{ resource }}"
+    server_name: privateserver
+    name: zippyopsdb
+    location: eastus
+    state: absent
+
+- name: Delete network interface using existing security group and public IP
+  azure_rm_networkinterface:
+        name: ansible-nic-public
+        resource_group: "{{ resource }}"
+        state: absent
+
+- name: Delete network interface using existing security group and public IP
+  azure_rm_networkinterface:
+        name: ansible-nic-private
+        resource_group: "{{ resource }}"
+        state: absent
+        
+- name: Delete network interface using existing security group and public IP
+  azure_rm_networkinterface:
+        name: ansible-nic-sql
+        resource_group: "{{ resource }}"
+        state: absent
+
+- name: Delete subnet
+  azure_rm_subnet:
+    name: "{{ resource }}-subnet-public"
+    virtual_network_name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    state: absent
+
+- name: Delete subnet
+  azure_rm_subnet:
+    name: "{{ resource }}-subnet-private"
+    virtual_network_name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    state: absent
+
+- name: Delete subnet
+  azure_rm_subnet:
+    name: "{{ resource }}-subnet-sql"
+    virtual_network_name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    state: absent
+
+- name: Delete public ip address
+  azure_rm_publicipaddress:
+    resource_group: "{{ resource }}"
+    name: centospublic
+    state: absent
+
+
+- name: Delete vnet
+  azure_rm_virtualnetwork:
+    name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    state: absent
+
+- name: Delete security group
+  azure_rm_securitygroup:
+      resource_group: "{{ resource }}"
+      name: "{{ resource }}-security-public"
+      state: absent
+
+- name: Delete security group
+  azure_rm_securitygroup:
+      resource_group: "{{ resource }}"
+      name: "{{ resource }}-security-private"
+      state: absent
+
+- name: Delete security group
+  azure_rm_securitygroup:
+      resource_group: "{{ resource }}"
+      name: "{{ resource }}-security-sql"
+      state: absent
+
+- name: create a storage account
+  azure_rm_storageaccount:
+    resource_group: "{{ resource }}"
+    name: ansiblesa
+    state: absent
+
+- name: Delete resource group
+  azure_rm_resourcegroup:
+    name: "{{ resource }}"
+    state: absent
+    force: true

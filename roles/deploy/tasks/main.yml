@@ -1,0 +1,186 @@
+---
+# tasks file for deploy
+- name: Create a resource group
+  azure_rm_resourcegroup:
+    name: "{{ resource }}"
+    location: eastus
+
+- name: Create vnet
+  azure_rm_virtualnetwork:
+    name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    address_prefixes_cidr:
+        - "10.0.0.0/24"
+
+- name: Create a public subnet
+  azure_rm_subnet:
+    name: "{{ resource }}-subnet-public"
+    virtual_network_name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    address_prefix_cidr: "10.0.0.0/24"
+
+- name: Create a private subnet
+  azure_rm_subnet:
+    name: "{{ resource }}-subnet-private"
+    virtual_network_name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    address_prefix_cidr: "10.0.1.0/24"
+
+- name: Create a sql subnet
+  azure_rm_subnet:
+    name: "{{ resource }}-subnet-sql"
+    virtual_network_name: "{{ resource }}-vnet"
+    resource_group: "{{ resource }}"
+    address_prefix_cidr: "10.0.2.0/24"
+
+- name: Create a public ip address
+  azure_rm_publicipaddress:
+    resource_group: "{{ resource }}"
+    name: "{{ item }}-ip"
+  with_items:
+     - "{{ vmname }}"
+
+- name: create security group
+  azure_rm_securitygroup:
+      resource_group: "{{ resource }}"
+      name: "{{ resource }}-security-public"
+      purge_rules: yes
+      rules:
+          - name: 'AllowSSH'
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 1000
+            direction: Inbound
+          - name: 'allow_rdp'
+            protocol: Tcp
+            destination_port_range: 3389
+            access: Allow
+            priority: 1001
+            direction: Inbound
+          - name: 'allow_web_traffic'
+            protocol: Tcp
+            destination_port_range:
+                - 80
+                - 443
+                - 8080
+            access: Allow
+            priority: 1002
+            direction: Inbound
+          - name: 'allow_powershell_remoting'
+            protocol: Tcp
+            destination_port_range:
+                - 5985
+                - 5986
+            access: Allow
+            priority: 1003
+
+- name: Create a network interface using existing security group and public IP
+  azure_rm_networkinterface:
+        name: ansible-nic-public
+        resource_group: "{{ resource }}"
+        virtual_network_name: "{{ resource }}-vnet"
+        subnet_name: "{{ resource }}-subnet-public"
+        security_group_name: "{{ resource }}-security-public"
+        public_ip_address_name: "{{ item }}-ip"
+
+- name: create security group for private
+  azure_rm_securitygroup:
+      resource_group: "{{ resource }}"
+      name: "{{ resource }}-security-private"
+      purge_rules: yes
+      rules:
+          - name: 'AllowSQL'
+            protocol: Tcp
+            destination_port_range: 8080
+            access: Allow
+            priority: 1000
+            direction: Inbound
+
+- name: Create a network interface with private IP address only (no Public IP)
+  azure_rm_networkinterface:
+    name: ansible-nic-private
+    resource_group: "{{ resource }}"
+    virtual_network_name: "{{ resource }}-vnet"
+    subnet_name: "{{ resource }}-subnet-private"
+    security_group_name: "{{ resource }}-security-private"
+    ip_configurations:
+      - name: ipconfig1
+        primary: True
+
+- name: create security group for sql
+  azure_rm_securitygroup:
+      resource_group: "{{ resource }}"
+      name: "{{ resource }}-security-sql"
+      purge_rules: yes
+      rules:
+          - name: 'AllowSQL'
+            protocol: Tcp
+            destination_port_range: 3306
+            access: Allow
+            priority: 1000
+            direction: Inbound
+
+- name: Create a network interface with private IP address only (no Public IP)
+  azure_rm_networkinterface:
+    name: ansible-nic-sql
+    resource_group: "{{ resource }}"
+    virtual_network_name: "{{ resource }}-vnet"
+    subnet_name: "{{ resource }}-subnet-sql"
+    security_group_name: "{{ resource }}-security-sql"
+    ip_configurations:
+      - name: ipconfig2
+        primary: True
+
+- name: create a storage account
+  azure_rm_storageaccount:
+    resource_group: "{{ resource }}"
+    name: ansiblesa
+    type: Standard_LRS
+
+
+- name: Create VM centos public
+  azure_rm_virtualmachine:
+    resource_group: "{{ resource }}"
+    name: centospublic
+    vm_size: "{{ vmsize }}"
+    storage_account: ansiblesa
+    admin_username: "{{ username }}"
+    admin_password: "{{ password }}"
+    network_interfaces: ansible-nic-public
+    image:
+     offer: CentOS
+     publisher: OpenLogic
+     sku: '7.2'
+     version: latest
+
+- name: Create VM centos public
+  azure_rm_virtualmachine:
+    resource_group: "{{ resource }}"
+    name: centosprivate
+    vm_size: "{{ vmsize }}"
+    storage_account: ansiblesa
+    admin_username: "{{ username }}"
+    admin_password: "{{ password }}"
+    network_interfaces: ansible-nic-private
+    image:
+     offer: CentOS
+     publisher: OpenLogic
+     sku: '7.2'
+     version: latest
+
+- name: Create (or update) SQL Server
+  azure_rm_sqlserver:
+    resource_group: "{{ resource }}"
+    name: privateserver
+    location: eastus
+    admin_username: mylogin
+    admin_password: Testpasswordxyz12!
+    network_interfaces: ansible-nic-sql
+
+- name: Create (or update) SQL Database
+  azure_rm_sqldatabase:
+    resource_group: "{{ resource }}"
+    server_name: privateserver
+    name: zippyopsdb
+    location: eastus
